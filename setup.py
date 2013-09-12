@@ -8,6 +8,7 @@ setup(name='pypdf2xml',
       author_email='zejn@owca.info',
       url='http://zejn.net/labs/',
       scripts=['pdf2xml', 'pdfxml2csv'],
+      packages=['pypdf2xml'],
       install_requires=['pdfminer>=20110515', 'lxml'],
       classifiers=[
           'Development Status :: 4 - Beta',
