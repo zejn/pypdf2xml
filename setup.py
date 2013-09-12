@@ -7,7 +7,7 @@ setup(name='pypdf2xml',
       author=u'Gašper Žejn'.encode('utf-8'),
       author_email='zejn@owca.info',
       url='http://zejn.net/labs/',
-      scripts=['pdf2xml', 'pdfxml2csv'],
+      scripts=['pdf2xml', 'pdfxml2csv', 'headerfilter'],
       packages=['pypdf2xml'],
       install_requires=['pdfminer>=20110515', 'lxml'],
       classifiers=[

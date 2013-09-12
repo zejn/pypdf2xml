@@ -1,0 +1,11 @@
+#!/usr/bin/python
+# coding: utf-8
+
+from pypdf2xml.headerfilter import remove_header_and_footer
+import sys
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        print '''USAGE: %s pypdf2xml_output.xml > filtered.xml''' % sys.argv[0]
+    else:
+        print remove_header_and_footer(open(sys.argv[1], 'rb'))
