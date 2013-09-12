@@ -10,7 +10,7 @@ import os
 from binascii import b2a_hex
 from operator import itemgetter
 
-__all__ = ['pdf2xml',]
+__all__ = ['pdf2xml','pdf2xml_pages']
 
 def with_pdf (pdf_doc, pdf_pwd, fn, *args):
     """Open the pdf document, and apply the function, returning the results"""
@@ -86,7 +86,7 @@ def _parse_pages (doc, images_folder):
 def get_pages (pdf_doc, pdf_pwd='', images_folder='/tmp'):
     """Process each of the pages in this pdf file and print the entire text to stdout"""
     #print '\n\n'.join(with_pdf(pdf_doc, pdf_pwd, _parse_pages, *tuple([images_folder])))
-    return '\n'.join(with_pdf(pdf_doc, pdf_pwd, _parse_pages, *tuple([images_folder])))
+    return with_pdf(pdf_doc, pdf_pwd, _parse_pages, *tuple([images_folder]))
 
 def parse_lt_objs (lt_objs, page_number, images_folder, page_height, text=[]):
     """Iterate through the list of LT* objects and capture the text or image data contained in each"""
@@ -181,8 +181,12 @@ def write_file (folder, filename, filedata, flags='w'):
             pass
     return result
 
-def pdf2xml(fileobj, handle_images=None):
+def pdf2xml_pages(fileobj, handle_images=None):
     return get_pages(fileobj, images_folder='.')
+
+def pdf2xml(fileobj, handle_images=None):
+    return '\n'.join(pdf2xml_pages(fileobj, handle_images=None))
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
