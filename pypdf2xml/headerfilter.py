@@ -10,7 +10,6 @@ usually header and footer.
 import re
 import sys
 import urllib
-import HTMLParser
 
 from StringIO import StringIO
 import lxml.etree, lxml.html
@@ -19,7 +18,6 @@ import collections
 __all__ = ['remove_header_and_footer']
 
 def parse_page_xml(fileobj):
-    h = HTMLParser.HTMLParser()
 
     pdfxml = fileobj.read()
     root = lxml.etree.fromstring(pdfxml)
@@ -72,7 +70,6 @@ def detect_repetition(pages):
     return header_footer
 
 def filter_lines(fileobj, header):
-    h = HTMLParser.HTMLParser()
 
     pdfxml = fileobj.read()
     root = lxml.etree.fromstring(pdfxml)
@@ -96,7 +93,7 @@ def filter_lines(fileobj, header):
                 if (top-1, left, text) in header or (top, left, text) in header or (top+1, left, text) in header:
                     v.getparent().remove(v)
                     continue
-    return lxml.html.tostring(root)
+    return lxml.etree.tostring(root)
 
 
 def remove_header_and_footer(fileobj):
