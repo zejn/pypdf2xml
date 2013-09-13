@@ -1,16 +1,54 @@
 #!/usr/bin/python
 # coding: utf-8
 
+import os
+import re
+import sys
+from binascii import b2a_hex
+from operator import itemgetter
+
+import lxml.etree
 from pdfminer.pdfparser import PDFParser, PDFDocument, PDFNoOutlines
 from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.converter import PDFPageAggregator
 from pdfminer.layout import LAParams, LTTextBox, LTTextLine, LTFigure, LTImage, LTTextLineHorizontal
-import sys
-import os
-from binascii import b2a_hex
-from operator import itemgetter
 
-__all__ = ['pdf2xml','pdf2xml_pages']
+__all__ = ['pdf2xml','pdf2xml_pages', 'parse_page_xml']
+
+def parse_page_xml(fileobj):
+
+    pdfxml = fileobj.read()
+    root = lxml.etree.fromstring(pdfxml)
+
+    fontspecs = {}
+    rows = []
+
+    pages = []
+    for pagenum, page in enumerate(root):
+        assert page.tag == 'page'
+        pagelines = {}
+        for v in page:
+            if v.tag == 'text':
+                # there has to be a better way here to get the contents
+                text = re.match('(?s)<text.*?>(.*?)</text>', lxml.etree.tostring(v)).group(1)
+                #print >> sys.stderr, text
+                if not text.strip():
+                    continue
+                left = int(v.attrib.get('left'))
+                top  = int(v.attrib.get('top'))
+                d = dict(v.attrib)
+                d['text'] = text
+                # fix some off-by-one placement issues, which make some text span over two lines where it should be in one
+                if pagelines.has_key(top-1): 
+                    top = top - 1
+                elif pagelines.has_key(top+1):
+                    top = top + 1
+                line = pagelines.setdefault(top, [])
+                line.append((left, d))
+        ordered = list(sorted([(k, sorted(v)) for k,v in pagelines.iteritems()]))
+        rows.extend(ordered)
+        pages.append((pagenum, ordered))
+    return pages
 
 def with_pdf (pdf_doc, pdf_pwd, fn, *args):
     """Open the pdf document, and apply the function, returning the results"""
@@ -70,7 +108,7 @@ def _parse_pages (doc, images_folder):
     text_content = [] # a list of strings, each representing text collected from each page of the doc
     text_content.append('<pdf2xml>')
     for i, page in enumerate(doc.get_pages()):
-        text_content.append('<page number="%s">' % (i+1,))
+        text_content.append('<page number="%s" width="%s" height="%s">' % (i+1, page.mediabox[2], page.mediabox[3]))
         interpreter.process_page(page)
         # receive the LTPage object for this page
         layout = device.get_result()
