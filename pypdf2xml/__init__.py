@@ -140,8 +140,6 @@ def parse_lt_objs (lt_objs, page_number, image_handler, page_height, text=[]):
             if saved_file:
                 # use html style <img /> tag to mark the position of the image within the text
                 text_content.append('<img src="'+ saved_file +'" />')
-            else:
-                print >> sys.stderr, "error saving image on page", page_number, lt_obj.__repr__()
         elif isinstance(lt_obj, LTFigure):
             # LTFigure objects are containers for other LT* objects, so recurse through the children
             text_content.append(parse_lt_objs(lt_obj._objs, page_number, image_handler, page_height, text_content))
@@ -186,7 +184,7 @@ def save_image (lt_image, page_number, image_handler):
             file_stream = lt_image.stream.get_rawdata()
             file_ext = determine_image_type(file_stream[0:4])
             if file_ext:
-                file_name = image_handler(lt_image.stream.get_rawdata())
+                file_name = image_handler(lt_image.stream.get_rawdata(), file_ext)
                 if file_name:
                     result = file_name
     return result

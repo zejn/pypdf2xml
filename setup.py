@@ -2,7 +2,7 @@
 from distutils.core import setup
 
 setup(name='pypdf2xml',
-      version='0.1',
+      version='0.2',
       description='A reimplementation of pdftoxml in Python, using pdfMiner. Handles unicode characters better.',
       author=u'Gašper Žejn'.encode('utf-8'),
       author_email='zejn@owca.info',
