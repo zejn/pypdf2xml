@@ -29,8 +29,8 @@ def detect_repetition(pages):
     for item0 in counter_items:
         top = item0[0][0]
         for item in item0[0][1]:
-            left, elem = item
-            header_footer[(top, left, elem['text'])] = 1
+            left, text = item
+            header_footer[(top, left, text)] = 1
     return header_footer
 
 def filter_lines(fileobj, header):

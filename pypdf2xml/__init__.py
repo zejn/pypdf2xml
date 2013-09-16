@@ -36,15 +36,14 @@ def parse_page_xml(fileobj):
                     continue
                 left = int(v.attrib.get('left'))
                 top  = int(v.attrib.get('top'))
-                d = dict(v.attrib)
-                d['text'] = text
+
                 # fix some off-by-one placement issues, which make some text span over two lines where it should be in one
                 if pagelines.has_key(top-1): 
                     top = top - 1
                 elif pagelines.has_key(top+1):
                     top = top + 1
                 line = pagelines.setdefault(top, [])
-                line.append((left, d))
+                line.append((left, text))
         ordered = list(sorted([(k, sorted(v)) for k,v in pagelines.iteritems()]))
         rows.extend(ordered)
         pages.append((pagenum, ordered))
@@ -97,7 +96,7 @@ def get_toc (pdf_doc, pdf_pwd=''):
     """Return the table of contents (toc), if any, for this pdf file"""
     return with_pdf(pdf_doc, pdf_pwd, _parse_toc)
 
-def _parse_pages (doc, images_folder):
+def _parse_pages (doc, image_handler):
     """With an open PDFDocument object, get the pages, parse each one, and return the entire text
     [this is a higher-order function to be passed to with_pdf()]"""
     rsrcmgr = PDFResourceManager()
@@ -114,19 +113,18 @@ def _parse_pages (doc, images_folder):
         layout = device.get_result()
         page_height = int(layout.bbox[3])
         # layout is an LTPage object which may contain child objects like LTTextBox, LTFigure, LTImage, etc.
-        ret = parse_lt_objs(layout._objs, (i+1), images_folder, page_height)
+        ret = parse_lt_objs(layout._objs, (i+1), image_handler, page_height)
         text_content.append(ret)
         text_content.append('</page>')
 
     text_content.append('</pdf2xml>')
     return text_content
 
-def get_pages (pdf_doc, pdf_pwd='', images_folder='/tmp'):
+def get_pages (pdf_doc, pdf_pwd='', image_handler=None):
     """Process each of the pages in this pdf file and print the entire text to stdout"""
-    #print '\n\n'.join(with_pdf(pdf_doc, pdf_pwd, _parse_pages, *tuple([images_folder])))
-    return with_pdf(pdf_doc, pdf_pwd, _parse_pages, *tuple([images_folder]))
+    return with_pdf(pdf_doc, pdf_pwd, _parse_pages, *tuple([image_handler]))
 
-def parse_lt_objs (lt_objs, page_number, images_folder, page_height, text=[]):
+def parse_lt_objs (lt_objs, page_number, image_handler, page_height, text=[]):
     """Iterate through the list of LT* objects and capture the text or image data contained in each"""
     text_content = []
 
@@ -137,15 +135,15 @@ def parse_lt_objs (lt_objs, page_number, images_folder, page_height, text=[]):
             update_page_text_hash(page_text, lt_obj)
         elif isinstance(lt_obj, LTImage):
             # an image, so save it to the designated folder, and note it's place in the text
-            saved_file = save_image(lt_obj, page_number, images_folder)
+            saved_file = save_image(lt_obj, page_number, image_handler)
             if saved_file:
                 # use html style <img /> tag to mark the position of the image within the text
-                text_content.append('<img src="'+os.path.join(images_folder, saved_file)+'" />')
+                text_content.append('<img src="'+ saved_file +'" />')
             else:
                 print >> sys.stderr, "error saving image on page", page_number, lt_obj.__repr__()
         elif isinstance(lt_obj, LTFigure):
             # LTFigure objects are containers for other LT* objects, so recurse through the children
-            text_content.append(parse_lt_objs(lt_obj._objs, page_number, images_folder, page_height, text_content))
+            text_content.append(parse_lt_objs(lt_obj._objs, page_number, image_handler, page_height, text_content))
 
     page_text_items = [(k[0], k[1], k, v) for k,v in page_text.items()]
 
@@ -179,16 +177,17 @@ def update_page_text_hash (h, lt_obj, pct=0.2):
             h[obj.bbox] = to_bytestring(obj.get_text()).rstrip('\n')
     return h
 
-def save_image (lt_image, page_number, images_folder):
+def save_image (lt_image, page_number, image_handler):
     """Try to save the image data from this LTImage object, and return the file name, if successful"""
     result = None
-    if lt_image.stream:
-        file_stream = lt_image.stream.get_rawdata()
-        file_ext = determine_image_type(file_stream[0:4])
-        if file_ext:
-            file_name = ''.join([str(page_number), '_', lt_image.name, file_ext])
-            if write_file(images_folder, file_name, lt_image.stream.get_rawdata(), flags='wb'):
-                result = file_name
+    if callable(image_handler):
+        if lt_image.stream:
+            file_stream = lt_image.stream.get_rawdata()
+            file_ext = determine_image_type(file_stream[0:4])
+            if file_ext:
+                file_name = image_handler(lt_image.stream.get_rawdata()):
+                if file_name:
+                    result = file_name
     return result
 
 def determine_image_type (stream_first_4_bytes):
@@ -219,10 +218,10 @@ def write_file (folder, filename, filedata, flags='w'):
             pass
     return result
 
-def pdf2xml_pages(fileobj, handle_images=None):
-    return get_pages(fileobj, images_folder='.')
+def pdf2xml_pages(fileobj, image_handler=None):
+    return get_pages(fileobj, image_handler=image_handler)
 
-def pdf2xml(fileobj, handle_images=None):
+def pdf2xml(fileobj, image_handler=None):
     return '\n'.join(pdf2xml_pages(fileobj, handle_images=None))
 
 
@@ -235,6 +234,6 @@ if __name__ == "__main__":
     \tpdf2xml file.pdf > outfile.xml
     """
     else:
-        pdf2xml(open(sys.argv[1], 'rb'), images_folder='.')
+        pdf2xml(open(sys.argv[1], 'rb'), image_handler=None)
 
 
