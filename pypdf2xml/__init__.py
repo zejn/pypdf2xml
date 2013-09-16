@@ -185,7 +185,7 @@ def save_image (lt_image, page_number, image_handler):
             file_stream = lt_image.stream.get_rawdata()
             file_ext = determine_image_type(file_stream[0:4])
             if file_ext:
-                file_name = image_handler(lt_image.stream.get_rawdata()):
+                file_name = image_handler(lt_image.stream.get_rawdata())
                 if file_name:
                     result = file_name
     return result
@@ -222,7 +222,7 @@ def pdf2xml_pages(fileobj, image_handler=None):
     return get_pages(fileobj, image_handler=image_handler)
 
 def pdf2xml(fileobj, image_handler=None):
-    return '\n'.join(pdf2xml_pages(fileobj, handle_images=None))
+    return '\n'.join(pdf2xml_pages(fileobj, image_handler=image_handler))
 
 
 if __name__ == "__main__":
