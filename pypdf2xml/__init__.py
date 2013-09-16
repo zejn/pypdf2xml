@@ -8,6 +8,7 @@ from binascii import b2a_hex
 from operator import itemgetter
 
 import lxml.etree
+from xml.sax.saxutils import escape
 from pdfminer.pdfparser import PDFParser, PDFDocument, PDFNoOutlines
 from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.converter import PDFPageAggregator
@@ -155,7 +156,7 @@ def parse_lt_objs (lt_objs, page_number, image_handler, page_height, text=[]):
         # which produces a top-down, left-to-right sequence of related columns
         a = k
         pos = 'top="%s" left="%s" width="%s" height="%s"' % (page_height-int(a[1]), int(a[0]), int(a[2]-a[0]), int(a[3]-a[1]))
-        text_content.append('<text %s>%s</text>' % (pos, v))
+        text_content.append('<text %s>%s</text>' % (pos, escape(v)))
 
     return '\n'.join(text_content)
 
