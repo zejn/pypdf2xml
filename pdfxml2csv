@@ -41,12 +41,12 @@ def xml2lines(filename):
                     top = top + 1
                 line = pagelines.setdefault(top, [])
                 line.append((left, v.text))
-        ordered = list(sorted([(k, sorted(v)) for k,v in pagelines.iteritems()], reverse=True))
+        ordered = list(sorted([(k, sorted(v)) for k,v in pagelines.iteritems()]))
         rows.extend(ordered)
 
     return rows
 
-def lines2cols(rows, splits, header=-1, footer=-1):
+def lines2cols(rows, splits, header=-1, footer=-1, verbose=False):
     records = []
     # splits must containt catchall zero
     if 0 not in [i[0] for i in splits]:
@@ -66,28 +66,43 @@ def lines2cols(rows, splits, header=-1, footer=-1):
             while splits[idx][0] > left:
                 idx = idx - 1
             linerec[idx].insert(0, (left, text))
-        print linerec
+        if verbose:
+            print linerec
 
         records.append(linerec)
     return records
 
+def records2csv(csv_filename):
+    csvfd = open(csv_filename, 'wb')
+    csvw = csv.writer(csvfd)
+    for row in table:
+        row2 = []
+        for r in row:
+            row2.append(u' '.join([i[1] for i in r]))
+        csvw.writerow([i.encode('utf-8') for i in row2])
+    csvfd.close()
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Parse PDF XML into a CSV')
     parser.add_argument('filename', metavar='filename.pdf', type=str, nargs=1, help='input PDF')
+    parser.add_argument('--verbose', dest='verbose', action='store_true', default=False, help='verbose output')
     parser.add_argument('--header', dest='header', type=int, nargs='?', default=-1, help='exclude all content on each page above this')
     parser.add_argument('--footer', dest='footer', type=int, nargs='?', default=-1, help='exclude all content on each page below this')
     parser.add_argument('--left', dest='left', type=str, nargs='?', help='position of a new cell split')
+    parser.add_argument('--csv', dest='output', type=str, nargs='?', help='output CSV file name')
 
     args = parser.parse_args()
+    verbose = args.verbose
     leftsplits = list(sorted([(int(i.strip()), 'left') for i in args.left.split(',')]))
     
     rows = xml2lines(args.filename[0])
     table = lines2cols(rows,
         header=args.header,
         footer=args.footer,
-        splits=leftsplits)
-
-    #[(500, 'left'), (96, 'left'), (89, 'left'), (82, 'left'), (76, 'left'), (74, 'left'), (64, 'left'), (66, 'left'),])
-
+        splits=leftsplits,
+        verbose=verbose)
     
-
+    if args.output:
+        records2csv(args.output)
+    
+    #[(500, 'left'), (96, 'left'), (89, 'left'), (82, 'left'), (76, 'left'), (74, 'left'), (64, 'left'), (66, 'left'),])
