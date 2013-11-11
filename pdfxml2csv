@@ -5,70 +5,89 @@ import re
 import sys
 import urllib
 import HTMLParser
+import argparse
 
 from StringIO import StringIO
 import lxml.etree, lxml.html
-#from postavke import load_postavke
+from pprint import pprint as pprint_orig
 
-h = HTMLParser.HTMLParser()
+def pprint(obj, *args, **kwargs):
+    width = kwargs.pop('width', 120)
+    pprint_orig(obj, *args, width=width, **kwargs)
 
-pdfxml = open(sys.argv[1],'r').read()
-root = lxml.etree.fromstring(pdfxml)
+def xml2lines(filename):
+    h = HTMLParser.HTMLParser()
 
-fontspecs = { }
-rows = [ ]
+    pdfxml = open(filename, 'r').read()
+    root = lxml.etree.fromstring(pdfxml)
 
-for pagenum, page in enumerate(root):
-    #if pagenum == 0:
-    #    continue
-    assert page.tag == 'page'
-    pagelines = {}
-    for v in page:
-        if v.tag == 'text':
-            text = re.match('(?s)<text.*?>(.*?)</text>', lxml.etree.tostring(v)).group(1)   # there has to be a better way here to get the contents
-            #print >> sys.stderr, text
-            left = int(v.attrib.get('left'))
-            top  = int(v.attrib.get('top'))
-            if pagelines.has_key(top-1): # fix some off-by-one placement issues, which make some text span over two lines where it should be in one
-                top = top - 1
-            elif pagelines.has_key(top+1):
-                top = top + 1
-            line = pagelines.setdefault(top, [])
-            line.append((left, text))
-    ordered = list(sorted([(k, sorted(v)) for k,v in pagelines.iteritems()], reverse=True))
-    #rows.extend([i[1] for i in ordered])
-    rows.extend(ordered)
+    fontspecs = { }
+    rows = [ ]
 
-#print >> sys.stderr, rows[:20]
+    # first create lines from given XML
+    for pagenum, page in enumerate(root):
+        assert page.tag == 'page'
+        pagelines = {}
+        pwidth = page.attrib['width']
+        pheight = page.attrib['height']
+        for v in page:
+            if v.tag == 'text':
+                left = int(v.attrib.get('left'))
+                top  = int(v.attrib.get('top'))
+                # fix some off-by-one placement issues, which make some text span over two lines where it should be in one
+                if pagelines.has_key(top-1):
+                    top = top - 1
+                elif pagelines.has_key(top+1):
+                    top = top + 1
+                line = pagelines.setdefault(top, [])
+                line.append((left, v.text))
+        ordered = list(sorted([(k, sorted(v)) for k,v in pagelines.iteritems()], reverse=True))
+        rows.extend(ordered)
 
-#pdata = load_postavke()
-records = []
-splitline = 300
-# split into cols
-pause_output = False # for footer and header
-for topoffset, line in rows:
-    firstoffset = line[0][0]
-    firstcol = []
-    secondcol = []
-    for item in line:
-        if item[0] < splitline:
-            firstcol.append(item[1])
-        else:
-            secondcol.append(item[1])
+    return rows
 
-    rec = [h.unescape(' '.join(firstcol))]
-    rec = [i.replace('<b>', '').replace('</b>', '').replace('<i>', '').replace('</i>', '') for i in rec]
-    first = ''.join(rec)
-    records.append([topoffset, firstoffset, first])
-    #print records[-1]
+def lines2cols(rows, splits, header=-1, footer=-1):
+    records = []
+    # splits must containt catchall zero
+    if 0 not in [i[0] for i in splits]:
+        splits = [(0, 'left')] + splits
+    splits = list(sorted(splits))
+    
+    for topoffset, line in rows:
+        if footer != -1 and topoffset > footer:
+            continue
+        if header != -1 and topoffset < header:
+            continue
+        linerec = [[] for i in xrange(len(splits))]
+        idx = len(splits)-1
+        split = splits[idx]
+        
+        for left, text in sorted(line, reverse=True):
+            while splits[idx][0] > left:
+                idx = idx - 1
+            linerec[idx].insert(0, (left, text))
+        print linerec
 
+        records.append(linerec)
+    return records
 
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Parse PDF XML into a CSV')
+    parser.add_argument('filename', metavar='filename.pdf', type=str, nargs=1, help='input PDF')
+    parser.add_argument('--header', dest='header', type=int, nargs='?', default=-1, help='exclude all content on each page above this')
+    parser.add_argument('--footer', dest='footer', type=int, nargs='?', default=-1, help='exclude all content on each page below this')
+    parser.add_argument('--left', dest='left', type=str, nargs='?', help='position of a new cell split')
 
+    args = parser.parse_args()
+    leftsplits = list(sorted([(int(i.strip()), 'left') for i in args.left.split(',')]))
+    
+    rows = xml2lines(args.filename[0])
+    table = lines2cols(rows,
+        header=args.header,
+        footer=args.footer,
+        splits=leftsplits)
 
-# write CSV
-csvdata = StringIO()
-w = csv.writer(csvdata, quotechar='"', quoting=csv.QUOTE_ALL)
-for r in records:
-    w.writerow([unicode(i).encode('utf-8') for i in r])
+    #[(500, 'left'), (96, 'left'), (89, 'left'), (82, 'left'), (76, 'left'), (74, 'left'), (64, 'left'), (66, 'left'),])
 
-print csvdata.getvalue()
+    
+
