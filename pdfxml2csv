@@ -72,13 +72,13 @@ def lines2cols(rows, splits, header=-1, footer=-1, verbose=False):
         records.append(linerec)
     return records
 
-def records2csv(csv_filename):
+def records2csv(csv_filename, csv_sep):
     csvfd = open(csv_filename, 'wb')
     csvw = csv.writer(csvfd)
     for row in table:
         row2 = []
         for r in row:
-            row2.append(u' '.join([i[1] for i in r]))
+            row2.append(csv_sep.join([i[1]['text'] for i in r]))
         csvw.writerow([i.encode('utf-8') for i in row2])
     csvfd.close()
 
@@ -90,10 +90,14 @@ if __name__ == "__main__":
     parser.add_argument('--footer', dest='footer', type=int, nargs='?', default=-1, help='exclude all content on each page below this')
     parser.add_argument('--left', dest='left', type=str, nargs='?', help='position of a new cell split')
     parser.add_argument('--csv', dest='output', type=str, nargs='?', help='output CSV file name')
+    parser.add_argument('--csv-textbox-separator', dest='csv_sep', type=str, default=u' ', nargs='?', help='output CSV separator for joining PDF TextBox elements')
 
     args = parser.parse_args()
     verbose = args.verbose
-    leftsplits = list(sorted([(int(i.strip()), 'left') for i in args.left.split(',')]))
+    if args.left:
+        leftsplits = list(sorted([(int(i.strip()), 'left') for i in args.left.split(',')]))
+    else:
+        leftsplits = [(0, 'left')]
     
     rows = xml2lines(args.filename[0])
     table = lines2cols(rows,
@@ -103,6 +107,6 @@ if __name__ == "__main__":
         verbose=verbose)
     
     if args.output:
-        records2csv(args.output)
+        records2csv(args.output, args.csv_sep)
     
     #[(500, 'left'), (96, 'left'), (89, 'left'), (82, 'left'), (76, 'left'), (74, 'left'), (64, 'left'), (66, 'left'),])
