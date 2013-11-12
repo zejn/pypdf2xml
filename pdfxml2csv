@@ -7,6 +7,7 @@ import urllib
 import HTMLParser
 import argparse
 import operator
+import numpy
 
 from StringIO import StringIO
 import lxml.etree, lxml.html
@@ -25,6 +26,11 @@ def parse_xml(filename):
     pages = []
     for pagenum, page in enumerate(root):
         assert page.tag == 'page'
+        pageinfo = {
+            'pagenumber': page.attrib.get('number'),
+            'width': page.attrib.get('width'),
+            'height': page.attrib.get('height'),
+        }
         textboxes = []
         for v in page:
             if v.tag == 'text':
@@ -40,7 +46,7 @@ def parse_xml(filename):
                     'text': v.text,
                     }
                 textboxes.append(info)
-        pages.append(textboxes)
+        pages.append((pageinfo, textboxes))
     return pages
 
 def pages2lines(pages):
@@ -48,7 +54,7 @@ def pages2lines(pages):
     # first create lines from given XML
     for pagenum, page in enumerate(pages):
         pagelines = {}
-        for item in page:
+        for item in page[1]:
             top = item['top']
             # fix some off-by-one placement issues, which make some text span over two lines where it should be in one
             if pagelines.has_key(top-1):
@@ -86,12 +92,13 @@ def lines2cols(rows, splits, header=-1, footer=-1, verbose=False):
                 idx = idx - 1
             linerec[idx].insert(0, (left, item))
         if verbose:
-            print linerec
+            #print linerec
+            pprint(linerec)
 
         records.append(linerec)
     return records
 
-def records2csv(csv_filename, csv_sep):
+def records2csv(table, csv_filename, csv_sep):
     csvfd = open(csv_filename, 'wb')
     csvw = csv.writer(csvfd)
     for row in table:
@@ -101,6 +108,43 @@ def records2csv(csv_filename, csv_sep):
         csvw.writerow([i.encode('utf-8') for i in row2])
     csvfd.close()
 
+def find_gaps(array):
+    gap_start = 0
+    prev = None
+    n = 0
+    gaps = []
+    while n < len(array):
+        cur = array[n]
+        if prev is None:
+            prev = cur
+            continue
+        if prev != 0 and cur == 0:
+            gap_start = n
+
+        if prev == 0 and cur != 0:
+            # end gap
+            gaps.append((gap_start, n-gap_start))
+        prev = cur
+        n += 1
+
+    if cur == 0 and prev == 0:
+        gaps.append((gap_start, n-gap_start))
+    return gaps
+
+def estimate_cell_vertical(pages, wlen=6):
+    pagegaps = []
+    for pageinfo, page in pages:
+        #pagepoints = [0]*(int(float(pageinfo['height']))+1)
+        pagepoints = numpy.zeros(int(float(pageinfo['height']))+1)
+        for item in page:
+            for idx in xrange(item['top'], item['top'] + item['height']):
+                pagepoints[idx] += len(item['text'])
+        window = numpy.hamming(wlen)
+        smoothed = numpy.convolve(pagepoints, window)
+        gaps = find_gaps(smoothed)
+        pagegaps.append(gaps)
+    return pagegaps
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Parse PDF XML into a CSV')
     parser.add_argument('filename', metavar='filename.pdf', type=str, nargs=1, help='input PDF')
@@ -108,6 +152,7 @@ if __name__ == "__main__":
     parser.add_argument('--header', dest='header', type=int, nargs='?', default=-1, help='exclude all content on each page above this')
     parser.add_argument('--footer', dest='footer', type=int, nargs='?', default=-1, help='exclude all content on each page below this')
     parser.add_argument('--left', dest='left', type=str, nargs='?', help='position of a new cell split')
+    parser.add_argument('--estimate-vcell', dest='estimate_vcell', action='store_true', help='perform a vertical cell estimation')
     parser.add_argument('--csv', dest='output', type=str, nargs='?', help='output CSV file name')
     parser.add_argument('--csv-textbox-separator', dest='csv_sep', type=str, default=u' ', nargs='?', help='output CSV separator for joining PDF TextBox elements')
 
@@ -125,8 +170,11 @@ if __name__ == "__main__":
         footer=args.footer,
         splits=leftsplits,
         verbose=verbose)
+
+    if args.estimate_vcell:
+        gaps = estimate_cell_vertical(pages)
     
     if args.output:
-        records2csv(args.output, args.csv_sep)
+        records2csv(table, args.output, args.csv_sep)
     
     #[(500, 'left'), (96, 'left'), (89, 'left'), (82, 'left'), (76, 'left'), (74, 'left'), (64, 'left'), (66, 'left'),])
