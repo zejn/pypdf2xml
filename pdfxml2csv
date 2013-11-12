@@ -16,33 +16,22 @@ def pprint(obj, *args, **kwargs):
     width = kwargs.pop('width', 120)
     pprint_orig(obj, *args, width=width, **kwargs)
 
-def xml2lines(filename):
+def parse_xml(filename):
     h = HTMLParser.HTMLParser()
 
     pdfxml = open(filename, 'r').read()
     root = lxml.etree.fromstring(pdfxml)
 
-    fontspecs = { }
-    rows = [ ]
-
-    # first create lines from given XML
+    pages = []
     for pagenum, page in enumerate(root):
         assert page.tag == 'page'
-        pagelines = {}
-        pwidth = page.attrib['width']
-        pheight = page.attrib['height']
+        textboxes = []
         for v in page:
             if v.tag == 'text':
                 left = int(v.attrib.get('left'))
                 top  = int(v.attrib.get('top'))
                 width  = int(v.attrib.get('width'))
                 height  = int(v.attrib.get('height'))
-                # fix some off-by-one placement issues, which make some text span over two lines where it should be in one
-                if pagelines.has_key(top-1):
-                    top = top - 1
-                elif pagelines.has_key(top+1):
-                    top = top + 1
-                line = pagelines.setdefault(top, [])
                 info = {
                     'left': left,
                     'top': top,
@@ -50,7 +39,24 @@ def xml2lines(filename):
                     'height': height,
                     'text': v.text,
                     }
-                line.append(info)
+                textboxes.append(info)
+        pages.append(textboxes)
+    return pages
+
+def pages2lines(pages):
+    rows = []
+    # first create lines from given XML
+    for pagenum, page in enumerate(pages):
+        pagelines = {}
+        for item in page:
+            top = item['top']
+            # fix some off-by-one placement issues, which make some text span over two lines where it should be in one
+            if pagelines.has_key(top-1):
+                top = top - 1
+            elif pagelines.has_key(top+1):
+                top = top + 1
+            line = pagelines.setdefault(top, [])
+            line.append(item)
 
         ordered = list(sorted([(k, sorted(v, key=operator.itemgetter('left'))) for k,v in pagelines.iteritems()]))
         rows.extend(ordered)
@@ -112,7 +118,8 @@ if __name__ == "__main__":
     else:
         leftsplits = [(0, 'left')]
     
-    rows = xml2lines(args.filename[0])
+    pages = parse_xml(args.filename[0])
+    rows = pages2lines(pages)
     table = lines2cols(rows,
         header=args.header,
         footer=args.footer,
