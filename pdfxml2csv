@@ -6,6 +6,7 @@ import sys
 import urllib
 import HTMLParser
 import argparse
+import operator
 
 from StringIO import StringIO
 import lxml.etree, lxml.html
@@ -34,14 +35,24 @@ def xml2lines(filename):
             if v.tag == 'text':
                 left = int(v.attrib.get('left'))
                 top  = int(v.attrib.get('top'))
+                width  = int(v.attrib.get('width'))
+                height  = int(v.attrib.get('height'))
                 # fix some off-by-one placement issues, which make some text span over two lines where it should be in one
                 if pagelines.has_key(top-1):
                     top = top - 1
                 elif pagelines.has_key(top+1):
                     top = top + 1
                 line = pagelines.setdefault(top, [])
-                line.append((left, v.text))
-        ordered = list(sorted([(k, sorted(v)) for k,v in pagelines.iteritems()]))
+                info = {
+                    'left': left,
+                    'top': top,
+                    'width': width,
+                    'height': height,
+                    'text': v.text,
+                    }
+                line.append(info)
+
+        ordered = list(sorted([(k, sorted(v, key=operator.itemgetter('left'))) for k,v in pagelines.iteritems()]))
         rows.extend(ordered)
 
     return rows
@@ -62,10 +73,12 @@ def lines2cols(rows, splits, header=-1, footer=-1, verbose=False):
         idx = len(splits)-1
         split = splits[idx]
         
-        for left, text in sorted(line, reverse=True):
+        for item in sorted(line, reverse=True):
+            left = item['left']
+            text = item['text']
             while splits[idx][0] > left:
                 idx = idx - 1
-            linerec[idx].insert(0, (left, text))
+            linerec[idx].insert(0, (left, item))
         if verbose:
             print linerec
 
