@@ -82,20 +82,20 @@ def lines2cols(rows, splits, header=-1, footer=-1, verbose=False):
         if header != -1 and topoffset < header:
             continue
         linerec = [[] for i in xrange(len(splits))]
-        idx = len(splits)-1
-        split = splits[idx]
+        split = splits[-1]
         
         for item in sorted(line, reverse=True):
             left = item['left']
             text = item['text']
+            idx = len(splits)-1
             while splits[idx][0] > left:
                 idx = idx - 1
             linerec[idx].insert(0, (left, item))
         if verbose:
-            #print linerec
             pprint(linerec)
 
-        records.append(linerec)
+        ordered = [sorted(i) for i in linerec]
+        records.append(ordered)
     return records
 
 def records2csv(table, csv_filename, csv_sep):
@@ -147,7 +147,7 @@ def estimate_cell_vertical(pages, wlen=6):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Parse PDF XML into a CSV')
-    parser.add_argument('filename', metavar='filename.pdf', type=str, nargs=1, help='input PDF')
+    parser.add_argument('filename', metavar='filename.xml', type=str, nargs=1, help='input XML')
     parser.add_argument('--verbose', dest='verbose', action='store_true', default=False, help='verbose output')
     parser.add_argument('--header', dest='header', type=int, nargs='?', default=-1, help='exclude all content on each page above this')
     parser.add_argument('--footer', dest='footer', type=int, nargs='?', default=-1, help='exclude all content on each page below this')
