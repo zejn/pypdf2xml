@@ -9,7 +9,8 @@ from operator import itemgetter
 
 import lxml.etree
 from xml.sax.saxutils import escape
-from pdfminer.pdfparser import PDFParser, PDFDocument, PDFNoOutlines
+from pdfminer.pdfparser import PDFParser
+from pdfminer.pdfdocument import PDFDocument, PDFNoOutlines
 from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.converter import PDFPageAggregator
 from pdfminer.layout import LAParams, LTTextBox, LTTextLine, LTFigure, LTImage, LTTextLineHorizontal
@@ -62,12 +63,11 @@ def with_pdf (pdf_doc, pdf_pwd, fn, *args):
         # create a parser object associated with the file object
         parser = PDFParser(fp)
         # create a PDFDocument object that stores the document structure
-        doc = PDFDocument()
+        doc = PDFDocument(parser)
         # connect the parser and document objects
         parser.set_document(doc)
-        doc.set_parser(parser)
         # supply the password for initialization
-        doc.initialize(pdf_pwd)
+        #doc.initialize(pdf_pwd)
 
         if doc.is_extractable:
             # apply the function and return the result
