@@ -13,6 +13,7 @@ from pdfminer.pdfparser import PDFParser
 from pdfminer.pdfdocument import PDFDocument, PDFNoOutlines
 from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.converter import PDFPageAggregator
+from pdfminer.pdfpage import PDFPage
 from pdfminer.layout import LAParams, LTTextBox, LTTextLine, LTFigure, LTImage, LTTextLineHorizontal
 
 __all__ = ['pdf2xml','pdf2xml_pages', 'parse_page_xml']
@@ -107,7 +108,7 @@ def _parse_pages (doc, image_handler):
 
     text_content = [] # a list of strings, each representing text collected from each page of the doc
     text_content.append('<pdf2xml>')
-    for i, page in enumerate(doc.get_pages()):
+    for i, page in enumerate(PDFPage.create_pages(doc)):
         text_content.append('<page number="%s" width="%s" height="%s">' % (i+1, page.mediabox[2], page.mediabox[3]))
         interpreter.process_page(page)
         # receive the LTPage object for this page
