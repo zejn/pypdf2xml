@@ -1,5 +1,5 @@
 # coding: utf-8
-from distutils.core import setup
+from setuptools import setup
 
 setup(name='pypdf2xml',
       version='0.3',
